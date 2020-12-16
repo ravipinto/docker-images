@@ -34,7 +34,7 @@ OGGProcesses="(adminclient|adminsrvr|distsrvr|extract|ggsci|pmsrvr|recvsrvr|repl
 ##
 ## Set some reasonable defaults
 ##
-[[ -z "${HOSTNAME}"   ]] && export HOSTNAME="${$(hostname 2>/dev/null):-localhost}"
+[[ -z "${HOSTNAME}"   ]] && export HOSTNAME="$(hostname 2>/dev/null || echo 'localhost')"
 [[ -z "${OGG_SCHEMA}" ]] && export OGG_SCHEMA="oggadmin"
 [[ -z "${OGG_ADMIN}"  ]] && export OGG_ADMIN="oggadmin"
 [[ -z "${PORT_BASE}"  ]] && {
@@ -229,6 +229,7 @@ function createDeployment {
              --portPmSrvr=${Port_MetricsServer} --enablePmSrvr=Yes \
              --portPmSrvrUdp=${Port_MetricsServerUDP} \
              --ggSchema=${OGG_SCHEMA} \
+             --envTnsAdmin=${TNS_ADMIN:=${OGG_DEPLOY_BASE}/${OGG_DEPLOYMENT}/etc} \
             ${secureOption}
     else
         return 0

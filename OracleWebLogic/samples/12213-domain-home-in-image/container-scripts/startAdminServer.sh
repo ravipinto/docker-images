@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-#Copyright (c) 2014-2018 Oracle and/or its affiliates. All rights reserved.
+#Copyright (c) 2014, 2020, Oracle and/or its affiliates.
 #
-#Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+#Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
 #Define DOMAIN_HOME
 echo "Domain Home is: " $DOMAIN_HOME
@@ -88,7 +88,7 @@ if [ -z "${PASS}" ]; then
 fi
 
 #Define Java Options
-JAVA_OPTIONS=`awk '{print $1}' ${SEC_PROPERTIES_FILE} | grep ^JAVA_OPTIONS= | cut -d "=" -f2`
+JAVA_OPTIONS=`awk '{print $1}' ${SEC_PROPERTIES_FILE} | grep ^JAVA_OPTIONS= | cut -d "=" -f2-`
 if [ -z "${JAVA_OPTIONS}" ]; then
    JAVA_OPTIONS="-Dweblogic.StdoutDebugEnabled=false"
 fi
