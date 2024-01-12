@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2016, 2020 Oracle and/or its affiliates.
+# Copyright (c) 2016, 2021, Oracle and/or its affiliates.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl
 #
@@ -47,10 +47,10 @@ trap _kill SIGKILL
 
 export vol_name=u01
 
-if [ "$DOMAIN_TYPE" = "soa" ] || [ "$DOMAIN_TYPE" = "bpm" ]
+if [[ "$MANAGED_SERVER" =~ "soa" ]]
 then
   grepPat="SOA Platform is running and accepting requests"
-elif [  "$DOMAIN_TYPE" = "osb" ]
+elif [[ "$MANAGED_SERVER" =~ "osb" ]]
 then
   grepPat="<Notice> <WebLogicServer> <BEA-000360> <The server started in RUNNING mode.>"
 else
@@ -63,8 +63,8 @@ LOGFILE=${LOGDIR}/ms.log
 mkdir -p ${LOGDIR}
 
 export thehost=`hostname -I`
-echo "INFO: Updating the listen address - ${thehost} ${ADMIN_HOST}"
-/u01/oracle/oracle_common/common/bin/wlst.sh -skipWLSModuleScanning /u01/oracle/container-scripts/updListenAddress.py $vol_name $thehost ${MANAGED_SERVER} ${ADMIN_HOST} > ${LOGDIR}/mslisten.log 2>&1
+echo "INFO: Updating the listen address - ${thehost}"
+/u01/oracle/oracle_common/common/bin/wlst.sh -skipWLSModuleScanning /u01/oracle/container-scripts/updListenAddress.py $vol_name $thehost ${MANAGED_SERVER} > ${LOGDIR}/mslisten.log 2>&1
 
 # Set boot.properties
 #

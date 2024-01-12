@@ -8,11 +8,12 @@ execution.  The container images can be extended with optional Instant Client
 packages for ODBC, or to include tools such as Oracle SQL\*Loader.
 
 The base images support building and using scripting language APIs that
-internally call OCI.  These include [Python's
-cx_Oracle](https://yum.oracle.com/oracle-linux-python.html), [Node.js's
+internally call OCI.  These include [Python's python-oracledb Thick
+mode](https://oracle.github.io/python-oracledb/), [Node.js's
 node-oracledb](https://yum.oracle.com/oracle-linux-nodejs.html), [PHP's
 OCI8](https://yum.oracle.com/oracle-linux-php.html), [Go's
-godror](https://godror.github.io/godror/) and [Ruby's
+godror](https://godror.github.io/godror/), [Rust's
+rust-oracle](https://github.com/kubo/rust-oracle), and [Ruby's
 ruby-oci8](https://www.rubydoc.info/github/kubo/ruby-oci8).
 
 ## About Oracle Instant Client
@@ -24,34 +25,73 @@ create and run applications that connect to a remote (or local) Oracle Database.
 
 Oracle client-server version interoperability is detailed in [Doc ID
 207303.1](https://support.oracle.com/epmos/faces/DocumentDisplay?id=207303.1).
-In summary, applications using Oracle Call Interface (OCI) 19, 18 and 12.2 can
-connect to Oracle Database 11.2 or later.  Some tools may have other
-restrictions.
+In summary, applications using Oracle Call Interface (OCI) 21 can connect to
+Oracle Database 12.1 or later.  Applications using Oracle Call Interface (OCI)
+19, 18 or 12.2 can connect to Oracle Database 11.2 or later.  Some tools may
+have other restrictions.
 
-## Building the Oracle Instant Client 19 Images
+## Prebuilt Images
+
+Pre-built images for Instant Client are in the [GitHub Container
+Registry](https://github.com/orgs/oracle/packages):
+
+  [oracle/packages/container/package/oraclelinux8-instantclient](https://github.com/orgs/oracle/packages/container/package/oraclelinux8-instantclient)
+  [oracle/packages/container/package/oraclelinux7-instantclient](https://github.com/orgs/oracle/packages/container/package/oraclelinux7-instantclient)
+
+They are built from the Dockerfiles in this repository.
+
+For example, to pull an Oracle Linux 8 image with Oracle Instant Client 21c
+already installed, execute:
+
+```bash
+docker pull ghcr.io/oracle/oraclelinux8-instantclient:21
+```
+
+Prebuilt containers for some language images are also available in the
+registry.
+
+## Building Oracle Instant Client 21 Images
+
+Change directory to [`oraclelinux7/21`](oraclelinux7/21) or
+[`oraclelinux8/21`](oraclelinux8/21) and run:
+
+```bash
+docker build --pull -t oracle/instantclient:21 .
+```
+
+The build process automatically installs Instant Client using RPMs directly from
+the [Oracle Instant Client repository
+(OL8)](https://yum.oracle.com/repo/OracleLinux/OL8/oracle/instantclient21/x86_64/)
+or [Oracle Instant Client repository
+(OL7)](https://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient21/x86_64/).
+
+Applications using Oracle Call Interface (OCI) 21 can connect to Oracle Database
+12.1 or later.  Some tools may have other restrictions.
+
+## Building Oracle Instant Client 19 Images
 
 Change directory to [`oraclelinux7/19`](oraclelinux7/19) or
-[`oraclelinux8/19`](oraclelinux8/19)and run:
+[`oraclelinux8/19`](oraclelinux8/19) and run:
 
-```
+```bash
 docker build --pull -t oracle/instantclient:19 .
 ```
 
 The build process automatically installs Instant Client using RPMs directly from
 the [Oracle Instant Client repository
-(OL7)](https://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64/index.html)
+(OL8)](https://yum.oracle.com/repo/OracleLinux/OL8/oracle/instantclient/x86_64/index.html)
 or [Oracle Instant Client repository
-(OL8)](https://yum.oracle.com/repo/OracleLinux/OL8/oracle/instantclient/x86_64/index.html).
+(OL7)](https://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64/index.html).
 
 Applications using Oracle Call Interface (OCI) 19 can connect to
 Oracle Database 11.2 or later.  Some tools may have other
 restrictions.
 
-## Building the Oracle Instant Client 18 Image for Oracle Linux 7
+## Building an Oracle Instant Client 18 Image for Oracle Linux 7
 
 Change directory to [`oraclelinux7/18`](oraclelinux7/18) and run:
 
-```
+```bash
 docker build --pull -t oracle/instantclient:18 .
 ```
 
@@ -63,7 +103,7 @@ Applications using Oracle Call Interface (OCI) 18 can connect to
 Oracle Database 11.2 or later.  Some tools may have other
 restrictions.
 
-## Building the Oracle Instant Client 12.2 Image for Oracle Linux 7
+## Building an Oracle Instant Client 12.2 Image for Oracle Linux 7
 
 Download the following three RPMs from the [Instant Client download
 page](https://www.oracle.com/database/technologies/instant-client/linux-x86-64-downloads.html)
@@ -77,7 +117,7 @@ Place the downloaded Oracle Instant Client RPMs (from the previous step) in the
 [`oraclelinux7/12.2.0.1`](oraclelinux7/12.2.0.1) directory, then switch to that
 directory and run:
 
-```
+```bash
 docker build --pull -t oracle/instantclient:12.2.0.1 .
 ```
 
@@ -90,7 +130,7 @@ restrictions.
 These Dockerfiles include SQL\*Plus so you can interactively run a container to
 execute ad-hoc SQL and PL/SQL statements against your database, for example:
 
-```
+```bash
 docker run -ti --rm oracle/instantclient:19 sqlplus hr@example.com/orclpdb1
 ```
 
@@ -110,16 +150,19 @@ directory.
 
 ## Using Wallets with Instant Client
 
-Oracle Wallets allow database connection over TLS and/or without requiring
-database credentials.
+Oracle Wallets allow database connection over mutual TLS and/or without
+requiring database credentials.
+
+> Note that starting from Instant Client 19.14 and 21.5, you can use 1-way TLS
+> with Oracle Autonomous Database instead of downloading a wallet.
 
 To use a wallet with Instant Client, obtain your wallet files and place them in
 a secure host directory.  Then, when running a container, use a volume to mount
 the files to the default Instant Client network configuration file directory,
 for example:
 
-```
-docker run -v /my/host/wallet_dir:/usr/lib/oracle/19.9/client64/lib/network/admin:Z,ro . . .
+```bash
+docker run -v /my/host/wallet_dir:/usr/lib/oracle/21/client64/lib/network/admin:Z,ro . . .
 ```
 
 You should review which volume options are required.  The `Z` option is needed

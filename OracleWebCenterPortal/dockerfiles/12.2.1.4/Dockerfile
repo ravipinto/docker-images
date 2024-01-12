@@ -1,4 +1,4 @@
-# Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, Oracle and/or its affiliates.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 #
 # ORACLE DOCKERFILES PROJECT
@@ -18,7 +18,7 @@
 # -----------------------
 # Put all downloaded files in the same directory as this Dockerfile
 # Run:
-#      $ docker build -t oracle/wcportal:12.2.1.4.0 .
+#      $ docker build -t oracle/wcportal:12.2.1.4
 #
 # -------------------------------------------------------------
 FROM oracle/fmw-infrastructure:12.2.1.4.0 as builder
@@ -77,7 +77,7 @@ USER root
 
 ENV PATH=$PATH:/usr/java/default/bin:/u01/oracle/oracle_common/common/bin:/u01/oracle/wlserver/common/bin:/u01/oracle/container-scripts
 
-RUN  yum install -y sudo hostname zip unzip tar procpcs  &&\
+RUN  yum install -y sudo hostname zip unzip tar procps  &&\
      rm -rf /var/cache/yum
 
 COPY --from=builder --chown=oracle:oracle /u01 /u01

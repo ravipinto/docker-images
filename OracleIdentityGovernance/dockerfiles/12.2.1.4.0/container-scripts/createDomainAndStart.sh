@@ -1,11 +1,11 @@
 #!/bin/bash
-# Copyright (c) 2020 Oracle and/or its affiliates.
+# Copyright (c) 2020, 2022, Oracle and/or its affiliates.
 #
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 #
 # Author: OIG Development
 #
-
+# shellcheck disable=SC2155,SC2060,SC2164
 export DOMAIN_HOME=$DOMAIN_ROOT/$DOMAIN_NAME
 
 ########### SIGINT handler ############
@@ -24,12 +24,7 @@ function _term() {
   exit;
 }
 
-########### SIGKILL handler ############
-function _kill() {
-  echo "INFO: SIGKILL received, shutting down Admin Server!"
-  /u01/oracle/user_projects/domains/base_domain/bin/stopWebLogic.sh
-  exit;
-}
+
 
 #######Random Password Generation########
 function rand_pwd(){
@@ -63,12 +58,10 @@ trap _int SIGINT
 # Set SIGTERM handler
 trap _term SIGTERM
 
-# Set SIGKILL handler
-trap _kill SIGKILL
+
 
 echo "INFO: CONNECTION_STRING = ${CONNECTION_STRING:?"Please set CONNECTION_STRING"}"
 echo "INFO: RCUPREFIX         = ${RCUPREFIX:?"Please set RCUPREFIX"}"
-echo "INFO: DB_PASSWORD       = ${DB_PASSWORD:?"Please set DB_PASSWORD"}"
 
 if [ -z ${ADMIN_PASSWORD} ]
 then
@@ -252,6 +245,24 @@ echo ". $DOMAIN_HOME/bin/setDomainEnv.sh" >> /u01/oracle/.bashrc
 echo "export PATH=$PATH:/u01/oracle/common/bin:$DOMAIN_HOME/bin" >> /u01/oracle/.bashrc
 
 updateListenAddress
+
+if [ ! -f /u01/oracle/idm/server/ConnectorDefaultDirectory/ConnectorConfigTemplate.xml ] && [ -d /u01/oracle/idm/server/ConnectorDefaultDirectory_orig ]; then
+    cp /u01/oracle/idm/server/ConnectorDefaultDirectory_orig/ConnectorConfigTemplate.xml /u01/oracle/idm/server/ConnectorDefaultDirectory
+fi
+
+if [ ! -f /u01/oracle/idm/server/ConnectorDefaultDirectory/ConnectorSchema.xsd ] && [ -d /u01/oracle/idm/server/ConnectorDefaultDirectory_orig ]; then
+    cp /u01/oracle/idm/server/ConnectorDefaultDirectory_orig/ConnectorSchema.xsd /u01/oracle/idm/server/ConnectorDefaultDirectory
+fi
+
+if [ ! -f /u01/oracle/idm/server/ConnectorDefaultDirectory/readme.txt ] && [ -d /u01/oracle/idm/server/ConnectorDefaultDirectory_orig ]; then
+    cp /u01/oracle/idm/server/ConnectorDefaultDirectory_orig/readme.txt /u01/oracle/idm/server/ConnectorDefaultDirectory
+fi
+
+if [ ! -d /u01/oracle/idm/server/ConnectorDefaultDirectory/targetsystems-lib ] && [ -d /u01/oracle/idm/server/ConnectorDefaultDirectory_orig ]; then
+    cp -rf /u01/oracle/idm/server/ConnectorDefaultDirectory_orig/targetsystems-lib /u01/oracle/idm/server/ConnectorDefaultDirectory
+fi
+
+
 # Now we start the Admin server in this container...
 /u01/oracle/dockertools/startAdmin.sh
 

@@ -1,6 +1,6 @@
 # LICENSE UPL 1.0
 #
-# Copyright (c) 2014, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2014, 2023, Oracle and/or its affiliates.
 #
 # Container image template for Oracle Instant Client
 #
@@ -8,8 +8,8 @@
 # --------------------------------------------
 #
 # Execute:
-#      $ docker build --pull -t oracle/instantclient:19 .
-#      $ docker run -ti --rm oracle/instantclient:19 sqlplus -l hr@example.com/orclpdb1
+#      $ podman build --pull -t oraclelinux7-instantclient:19 .
+#      $ podman run -ti --rm oraclelinux7-instantclient:19 sqlplus /nolog
 #
 # NOTES
 # -----
@@ -27,10 +27,10 @@
 # Optional Oracle Network and Oracle client configuration files can be put in the
 # default configuration file directory /usr/lib/oracle/<version>/client64/lib/network/admin.
 # Configuration files include tnsnames.ora, sqlnet.ora, oraaccess.xml and
-# cwallet.sso.  You can use a Docker volume to mount the directory containing
+# cwallet.sso.  You can use a container volume to mount the directory containing
 # the files at runtime, for example:
 #
-#   docker run -v /my/host/wallet_dir:/usr/lib/oracle/19.9/client64/lib/network/admin:Z,ro . . .
+#   podman run -v /my/host/wallet_dir:/usr/lib/oracle/19.21/client64/lib/network/admin:Z,ro . . .
 #
 # This avoids embedding private information such as wallets in images.  If you
 # do choose to include network configuration files in images, you can use a
@@ -44,8 +44,9 @@
 # ORACLE INSTANT CLIENT PACKAGES
 # ------------------------------
 #
-# Instant Client Packages for Oracle Linux 7 are available from
-# https://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64/index.html
+# Instant Client 19c Packages for Oracle Linux 7 are available from
+#   https://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64/index.html
+# Also see https://yum.oracle.com/oracle-instant-client.html
 #
 # Base - one of these packages is required to run applications and tools
 #   oracle-instantclientXX.Y-basic      : Basic Package - All files required to run OCI, OCCI, and JDBC-OCI applications
@@ -60,14 +61,18 @@
 #   oracle-instantclientXX.Y-jdbc       : JDBC Supplement Package - Additional support for Internationalization under JDBC
 #   oracle-instantclientXX.Y-odbc       : ODBC Package - Additional libraries for enabling ODBC applications
 #
+# PREBUILT CONTAINER
+# ------------------
+#
+# A prebuilt container from this Dockerfile is available from
+#   https://github.com/orgs/oracle/packages/container/package/oraclelinux7-instantclient
+# and can be pulled with:
+#   podman pull ghcr.io/oracle/oraclelinux7-instantclient:19
 
 FROM oraclelinux:7-slim
 
-LABEL "provider"="Oracle"                                               \
-      "issues"="https://github.com/oracle/docker-images/issues" 
-
 ARG release=19
-ARG update=9
+ARG update=21
 
 RUN  yum -y install oracle-release-el7 && \
      yum -y install oracle-instantclient${release}.${update}-basic oracle-instantclient${release}.${update}-devel oracle-instantclient${release}.${update}-sqlplus && \

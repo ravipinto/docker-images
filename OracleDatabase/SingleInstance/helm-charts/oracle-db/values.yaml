@@ -20,10 +20,14 @@ oracle_characterset: AL32UTF8
 ## The database edition (default: enterprise)
 oracle_edition: enterprise
 
+## Enable archive log mode when creating the database
+enable_archivelog: false
+
 ## Enable persistence using Persistent Volume Claims
 ## ref: http://kubernetes.io/docs/user-guide/persistent-volumes/
+## Override 'persistence' to 'null' using '--set' option, if persistence is not desired (e.g. using the extended image with 'prebuiltdb' extension)
 persistence:
-  ## Oracle database data Persistent Volume Storage Class, nfs or block
+  ## Oracle Database data Persistent Volume Storage Class, nfs or block
   storageClass: ""
   size: 100Gi
 
@@ -32,6 +36,7 @@ persistence:
 availabilityDomain:
 
 ## Deploy multiple replicas for fast fail over
+## If 'persistence' is 'null' then fast fail over will not happen even if replicas>1 (as no persistence)
 replicas: 1
 
 ## deploy LoadBalancer service
@@ -46,3 +51,8 @@ imagePullPolicy: Always
 ## container registry login/password
 imagePullSecrets:
 
+## Deploy only on nodes having required labels .
+## Format label_name : label_value . eg pool: sidb
+## Leave empty if there is no such requirement
+nodeLabels:
+#  pool: sidb
