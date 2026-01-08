@@ -14,7 +14,7 @@ export DOMAIN_HOME=${DOMAIN_ROOT}/${DOMAIN_NAME}
 function _int() {
   echo "INFO: Stopping container."
   echo "INFO:   SIGINT received, shutting down Admin Server!"
-  /u01/oracle/user_projects/domains/base_domain/bin/stopWebLogic.sh
+  $DOMAIN_HOME/bin/stopWebLogic.sh
   exit;
 }
 
@@ -22,7 +22,7 @@ function _int() {
 function _term() {
   echo "INFO: Stopping container."
   echo "INFO:   SIGTERM received, shutting down Admin Server!"
-  /u01/oracle/user_projects/domains/base_domain/bin/stopWebLogic.sh
+  $DOMAIN_HOME/bin/stopWebLogic.sh
   exit;
 }
 
@@ -64,7 +64,7 @@ setupRCU() {
 updateListenAddress() {
   mkdir -p ${DOMAIN_HOME}/logs
 
-  thehost=`hostname -I`
+  thehost=$(hostname -I | awk '{print $1}')
   export thehost
   echo "INFO: Updating the listen address - ${thehost}"
   cmd="/u01/oracle/oracle_common/common/bin/wlst.sh -skipWLSModuleScanning /u01/oracle/container-scripts/updListenAddress.py $vol_name ${thehost} AdminServer"
@@ -78,14 +78,27 @@ updateListenAddress() {
 trap _int SIGINT
 trap _term SIGTERM
 
-echo "INFO: CONNECTION_STRING = ${CONNECTION_STRING:?"Please set CONNECTION_STRING"}"
+if [ "${USE_ADB}" = "true" ]; then
+  echo "INFO: USE_ADB=true; ADB_TNS_ALIAS=${ADB_TNS_ALIAS:-<not set>}; TNS_ADMIN=${TNS_ADMIN:-<not set>}"
+else
+  echo "INFO: CONNECTION_STRING = ${CONNECTION_STRING:?"Please set CONNECTION_STRING"}"
+fi
 echo "INFO: RCUPREFIX         = ${RCUPREFIX:?"Please set RCUPREFIX"}"
 
-if [ -z ${DB_PASSWORD} ]
-then
-  echo ""
-  echo "FATAL: DB System password is empty. Exiting..."
-  exit 1
+if [ "${USE_ADB}" = "true" ]; then
+  # For Autonomous DB, we skip RCU here; require RCU prefix and schema password to be provided.
+  if [ -z "${RCUPREFIX}" ] || [ -z "${DB_SCHEMA_PASSWORD}" ]; then
+    echo ""
+    echo "FATAL: For USE_ADB=true, set RCUPREFIX and DB_SCHEMA_PASSWORD (schema password for prefix). Exiting..."
+    exit 1
+  fi
+else
+  if [ -z ${DB_PASSWORD} ]
+  then
+    echo ""
+    echo "FATAL: DB System password is empty. Exiting..."
+    exit 1
+  fi
 fi;
 
 if [ -z ${ADMIN_PASSWORD} ]
@@ -112,7 +125,19 @@ then
   echo ""
 fi
 
-export jdbc_url="jdbc:oracle:thin:@"$CONNECTION_STRING
+# Build JDBC URL. For Autonomous DB, prefer wallet-based alias if provided.
+if [ "${USE_ADB}" = "true" ]; then
+  if [ -n "${ADB_TNS_ALIAS}" ]; then
+    export jdbc_url="jdbc:oracle:thin:@${ADB_TNS_ALIAS}"
+  else
+    # Fallback: allow explicit full connect string to be passed
+    export jdbc_url="jdbc:oracle:thin:@${CONNECTION_STRING}"
+  fi
+  # Ensure JVM knows TNS_ADMIN so WLST/DataSources can resolve aliases
+  export JAVA_OPTIONS="$JAVA_OPTIONS -Doracle.net.tns_admin=${TNS_ADMIN}"
+else
+  export jdbc_url="jdbc:oracle:thin:@${CONNECTION_STRING}"
+fi
 export vol_name=u01
 
 echo -e $DB_PASSWORD"\n"$DB_SCHEMA_PASSWORD > /tmp/pwd.txt
@@ -126,6 +151,11 @@ CTR_DIR=/$vol_name/oracle/user_projects/container/${DOMAIN_NAME}
 RUN_RCU="true"
 CONFIGURE_DOMAIN="true"
 
+if [ "${USE_ADB}" = "true" ]; then
+  # Autonomous DB does not allow SYSDBA; assume schemas are pre-created; skip RCU.
+  RUN_RCU="false"
+fi
+
 if [ -d  $CTR_DIR ] 
 then
   # First load the Env Data from the env file... 
@@ -133,7 +163,11 @@ then
   then
     . $CTR_DIR/contenv.sh
     #reset the JDBC URL
-    export jdbc_url="jdbc:oracle:thin:@"$CONNECTION_STRING
+    if [ "${USE_ADB}" = "true" ] && [ -n "${ADB_TNS_ALIAS}" ]; then
+      export jdbc_url="jdbc:oracle:thin:@${ADB_TNS_ALIAS}"
+    else
+      export jdbc_url="jdbc:oracle:thin:@${CONNECTION_STRING}"
+    fi
   fi
 else
   mkdir -p $CTR_DIR
@@ -200,7 +234,12 @@ fi
 
 if [ "$CONFIGURE_DOMAIN" = "true" ] 
 then
-  cfgCmd="/u01/oracle/oracle_common/common/bin/wlst.sh -skipWLSModuleScanning /u01/oracle/container-scripts/createDomain.py -oh $ORACLE_HOME -jh $JAVA_HOME -parent $DOMAIN_ROOT -name $DOMAIN_NAME -password $ADMIN_PASSWORD -rcuDb $CONNECTION_STRING -rcuPrefix $RCUPREFIX -rcuSchemaPwd $DB_SCHEMA_PASSWORD -domainType $DOMAIN_TYPE -persistentStore $PERSISTENCE_STORE"
+  if [ "${USE_ADB}" = "true" ] && [ -n "${ADB_TNS_ALIAS}" ]; then
+    rcuDbVal="${ADB_TNS_ALIAS}"
+  else
+    rcuDbVal="${CONNECTION_STRING}"
+  fi
+  cfgCmd="/u01/oracle/oracle_common/common/bin/wlst.sh -skipWLSModuleScanning /u01/oracle/container-scripts/createDomain.py -oh $ORACLE_HOME -jh $JAVA_HOME -parent $DOMAIN_ROOT -name $DOMAIN_NAME -password $ADMIN_PASSWORD -rcuDb ${rcuDbVal} -rcuPrefix $RCUPREFIX -rcuSchemaPwd $DB_SCHEMA_PASSWORD -domainType $DOMAIN_TYPE -persistentStore $PERSISTENCE_STORE"
   ${cfgCmd}
   retval=$?
   if [ $retval -ne 0 ]; 

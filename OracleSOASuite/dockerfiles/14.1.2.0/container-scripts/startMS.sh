@@ -28,6 +28,11 @@ function _term() {
 }
 
 
+# If using Autonomous DB, ensure JDBC can resolve TNS aliases
+if [ "${USE_ADB}" = "true" ] && [ -n "${TNS_ADMIN}" ]; then
+  export JAVA_OPTIONS="$JAVA_OPTIONS -Doracle.net.tns_admin=${TNS_ADMIN}"
+fi
+
 #calling soa extension function script
 /u01/oracle/container-scripts/soaExtFun.sh
 
@@ -55,7 +60,7 @@ LOGDIR=${DOMAIN_HOME}/logs/${MANAGED_SERVER}
 LOGFILE=${LOGDIR}/ms.log
 mkdir -p ${LOGDIR}
 
-thehost=`hostname -I`
+thehost=$(hostname -I | awk '{print $1}')
 export thehost
 echo "INFO: Updating the listen address - ${thehost}"
 /u01/oracle/oracle_common/common/bin/wlst.sh -skipWLSModuleScanning /u01/oracle/container-scripts/updListenAddress.py $vol_name $thehost ${MANAGED_SERVER} > ${LOGDIR}/mslisten.log 2>&1

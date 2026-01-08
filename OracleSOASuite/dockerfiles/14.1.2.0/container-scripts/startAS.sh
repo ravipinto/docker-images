@@ -19,6 +19,11 @@ STSFILE=${LOGDIR}/as.status
 mkdir -p ${LOGDIR}
 rm -f ${LOGFILE} ${STSFILE}
 
+# If using Autonomous DB, ensure JDBC can resolve TNS aliases
+if [ "${USE_ADB}" = "true" ] && [ -n "${TNS_ADMIN}" ]; then
+  export JAVA_OPTIONS="$JAVA_OPTIONS -Doracle.net.tns_admin=${TNS_ADMIN}"
+fi
+
 #calling soa extension function script
 /u01/oracle/container-scripts/soaExtFun.sh
 

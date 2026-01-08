@@ -22,7 +22,65 @@ To create the Podman network and run containers, follow these steps:
  6. [Create SOA Managed Server containers](#6-create-soa-managed-server-containers)
  7. [Create Oracle Service Bus Managed Server containers](#7-create-oracle-service-bus-managed-server-containers)
  8. [Access the Consoles](#8-access-the-consoles)
- 9. [Clean up the environment](#9-clean-up-the-environment)
+9. [Clean up the environment](#9-clean-up-the-environment)
+
+## Oracle Autonomous Database (26ai) support (experimental)
+
+This repo now includes an experimental path to target Oracle Autonomous Database (26ai) for the SOA domain schemas. Important notes:
+
+- Product support: Running Oracle SOA Suite 14.1.2.0 against Autonomous DB is not a standard, certified topology. Proceed only for evaluation.
+- RCU: Autonomous DB does not allow SYSDBA. The container scripts skip RCU when `USE_ADB=true`. You must pre-create the SOA schemas in ADB with RCU from a supported workstation that can connect with a wallet.
+- Wallet: You must mount the ADB wallet into the container(s) and set `TNS_ADMIN` to that directory. All JDBC URLs use the TNS alias (e.g., `myadb_low`).
+
+### 0. Prepare ADB wallet and schemas
+
+1. Download the ADB wallet ZIP from OCI console and unzip locally, e.g., `/home/opc/wallet`.
+2. Run RCU externally to create required schemas using your `RCUPREFIX` (components: OPSS, STB, SOAINFRA, ESS). Note the schema password you set; this becomes `DB_SCHEMA_PASSWORD` for the containers.
+
+### 4a. Obtain and run SOA image with ADB
+
+Mount the wallet and set the following env vars:
+
+- `USE_ADB=true`
+- `TNS_ADMIN=/opt/oracle/wallet` (path inside container)
+- `ADB_TNS_ALIAS=<tns_alias_from_tnsnames.ora>` (e.g., `myadb_low`)
+- `RCUPREFIX=<Your RCU prefix>`
+- `DB_SCHEMA_PASSWORD=<Schema password used during RCU>`
+- `ADMIN_PASSWORD=<WebLogic admin password>`
+- `DOMAIN_NAME=soainfra` (or as desired)
+- `DOMAIN_TYPE=<soa|osb|soaosb>`
+- `PERSISTENCE_STORE=jdbc` (recommended)
+
+Example `adminserver.env.list` for ADB:
+
+```bash
+USE_ADB=true
+TNS_ADMIN=/opt/oracle/wallet
+ADB_TNS_ALIAS=myadb_low
+RCUPREFIX=SOA1
+DB_SCHEMA_PASSWORD=YourSchemaPwd1
+ADMIN_PASSWORD=welcome1
+DOMAIN_NAME=soainfra
+DOMAIN_TYPE=soa
+PERSISTENCE_STORE=jdbc
+```
+
+Run the Admin Server container (mount wallet read-only):
+
+```bash
+podman run -it --name soaas --network=SOANet \
+  -p 7001:7001 \
+  -v soadomain_vol:/u01/oracle/user_projects \
+  -v /home/opc/wallet:/opt/oracle/wallet:ro \
+  --env-file ./adminserver.env.list \
+  container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205
+```
+
+Notes:
+- In ADB mode the scripts skip RCU. If schemas are missing or credentials are wrong, WLST domain creation will fail when it validates datasources.
+- `CONNECTION_STRING` is not required when `ADB_TNS_ALIAS` is provided.
+- Ensure `sqlnet.ora` and wallet files exist in `TNS_ADMIN` and the alias resolves to `tcps`.
+
 
 ## 1. Create a network
 
@@ -154,7 +212,9 @@ To view the Administration Server logs, enter the following command:
 
 You can start containers to launch the SOA Managed Servers from the image created.
 
-Create an environment variables file specific to each Managed Server in the cluster in the SOA domain. For example, `soaserver1.env.list` and `soaserver2.env.list` for a SOA cluster:
+Create an environment variables file specific to each Managed Server in the cluster in the SOA domain. For example, `soaserver1.env.list` and `soaserver2.env.list` for a SOA cluster.
+
+If using Autonomous Database (26ai), include the wallet/alias variables shown:
 ``` bash
 MANAGED_SERVER=<Managed Server name, either soa_server1 or soa_server2>
 DOMAIN_NAME=soainfra
@@ -163,6 +223,9 @@ ADMIN_PORT=<Node port number mapping Administration Server container port `7001`
 ADMIN_PASSWORD=<admin_password>
 MANAGED_SERVER_CONTAINER=true
 MANAGEDSERVER_PORT=<Container port number where Managed Server is running>
+USE_ADB=true
+TNS_ADMIN=/opt/oracle/wallet
+ADB_TNS_ALIAS=<tns_alias_from_tnsnames.ora>
 ```
 
 >IMPORTANT: In the Managed Servers environment variables file
@@ -179,6 +242,9 @@ ADMIN_PORT=7001
 ADMIN_PASSWORD=welcome1
 MANAGED_SERVER_CONTAINER=true
 MANAGEDSERVER_PORT=7003
+USE_ADB=true
+TNS_ADMIN=/opt/oracle/wallet
+ADB_TNS_ALIAS=myadb_low
 ```
 
 Example for `soaserver2.env.list`:
@@ -190,18 +256,21 @@ ADMIN_PORT=7001
 ADMIN_PASSWORD=welcome1
 MANAGED_SERVER_CONTAINER=true
 MANAGEDSERVER_PORT=7005
+USE_ADB=true
+TNS_ADMIN=/opt/oracle/wallet
+ADB_TNS_ALIAS=myadb_low
 ```
-To start a Podman container for the SOA server (for `soa_server1`), you can use the `podman run` command passing `soaserver1.env.list` with port `7003`.
+To start a Podman container for the SOA server (for `soa_server1`), you can use the `podman run` command passing `soaserver1.env.list` with port `7003`. When using ADB, also mount the wallet volume:
 
 For example:
 ``` bash
-`$ podman run -it --name soams1 --network=SOANet -p 7003:7003  -v soadomain_vol:/u01/oracle/user_projects --env-file ./soaserver1.env.list container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205 "/u01/oracle/container-scripts/startMS.sh"`
+`$ podman run -it --name soams1 --network=SOANet -p 7003:7003  -v soadomain_vol:/u01/oracle/user_projects -v /home/opc/wallet:/opt/oracle/wallet:ro --env-file ./soaserver1.env.list container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205 "/u01/oracle/container-scripts/startMS.sh"`
 ```
-Similarly, to start a second Podman container for the SOA server (for `soa_server2`), you can use the `podman run` command passing `soaserver2.env.list` with port `7005`.
+Similarly, to start a second Podman container for the SOA server (for `soa_server2`), you can use the `podman run` command passing `soaserver2.env.list` with port `7005`. When using ADB, also mount the wallet:
 
 For example:
 ``` bash
-`$ podman run -it --name soams2 --network=SOANet -p 7005:7005 -v soadomain_vol:/u01/oracle/user_projects --env-file ./soaserver2.env.list  container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205 "/u01/oracle/container-scripts/startMS.sh"`
+`$ podman run -it --name soams2 --network=SOANet -p 7005:7005 -v soadomain_vol:/u01/oracle/user_projects -v /home/opc/wallet:/opt/oracle/wallet:ro --env-file ./soaserver2.env.list  container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205 "/u01/oracle/container-scripts/startMS.sh"`
 ```
 
 > **Note**: Using `-v` reuses the volume created by the Administration Server container.
@@ -223,7 +292,9 @@ Once the Managed Server container is created, you can view the server logs:
 
 You can start containers to launch the Oracle Service Bus Managed Servers from the image created.
 
-Create an environment variables file specific to each Managed Server in the cluster in the SOA domain. For example, `osbserver1.env.list` and `osbserver2.env.list` for an Oracle Service Bus cluster:
+Create an environment variables file specific to each Managed Server in the cluster in the SOA domain. For example, `osbserver1.env.list` and `osbserver2.env.list` for an Oracle Service Bus cluster.
+
+If using Autonomous Database (26ai), include the wallet/alias variables shown:
 ``` bash
 MANAGED_SERVER=<Managed Server name, either osb_server1 or osb_server2>
 DOMAIN_NAME=soainfra
@@ -232,6 +303,9 @@ ADMIN_PORT=<Node port number mapping Administration Server container port `7001`
 ADMIN_PASSWORD=<admin_password>
 MANAGED_SERVER_CONTAINER=true
 MANAGEDSERVER_PORT=<Container port number where Managed Server is running>
+USE_ADB=true
+TNS_ADMIN=/opt/oracle/wallet
+ADB_TNS_ALIAS=<tns_alias_from_tnsnames.ora>
 ```
 
 >IMPORTANT: In the Managed Servers environment variables file
@@ -248,6 +322,9 @@ ADMIN_PORT=7001
 ADMIN_PASSWORD=welcome1
 MANAGED_SERVER_CONTAINER=true
 MANAGEDSERVER_PORT=8002
+USE_ADB=true
+TNS_ADMIN=/opt/oracle/wallet
+ADB_TNS_ALIAS=myadb_low
 ```
 Example for `osbserver2.env.list`:
 ```bash
@@ -258,19 +335,22 @@ ADMIN_PORT=7001
 ADMIN_PASSWORD=welcome1
 MANAGED_SERVER_CONTAINER=true
 MANAGEDSERVER_PORT=8004
+USE_ADB=true
+TNS_ADMIN=/opt/oracle/wallet
+ADB_TNS_ALIAS=myadb_low
 ```
 
-To start a Podman container for the Oracle Service Bus server (for `osb_server1`), you can use the `podman run` command passing `osbserver1.env.list`.
+To start a Podman container for the Oracle Service Bus server (for `osb_server1`), you can use the `podman run` command passing `osbserver1.env.list`. When using ADB, also mount the wallet:
 
 For example:
 ``` bash
-`$ podman run -it --name osbms1 --network=SOANet -p 8002:8002 -v soadomain_vol:/u01/oracle/user_projects --env-file ./osbserver1.env.list container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205 "/u01/oracle/container-scripts/startMS.sh"`
+`$ podman run -it --name osbms1 --network=SOANet -p 8002:8002 -v soadomain_vol:/u01/oracle/user_projects -v /home/opc/wallet:/opt/oracle/wallet:ro --env-file ./osbserver1.env.list container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205 "/u01/oracle/container-scripts/startMS.sh"`
 ```
-Similarly, to start a second Podman container for the Oracle Service Bus server (for `osb_server2`), you can use the `podman run` command passing `osbserver2.env.list`.
+Similarly, to start a second Podman container for the Oracle Service Bus server (for `osb_server2`), you can use the `podman run` command passing `osbserver2.env.list`. When using ADB, also mount the wallet:
 
 For example:
 ``` bash
-`$ podman run -it --name osbms1 --network=SOANet -p 8004:8004 -v soadomain_vol:/u01/oracle/user_projects --env-file ./osbserver2.env.list container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205 "/u01/oracle/container-scripts/startMS.sh"`
+`$ podman run -it --name osbms1 --network=SOANet -p 8004:8004 -v soadomain_vol:/u01/oracle/user_projects -v /home/opc/wallet:/opt/oracle/wallet:ro --env-file ./osbserver2.env.list container-registry.oracle.com/middleware/soasuite:14.1.2.0-17-ol8-241205 "/u01/oracle/container-scripts/startMS.sh"`
 ```
 The following lines indicate when the Oracle Service Bus Managed Server is ready to be used:
 ``` bash

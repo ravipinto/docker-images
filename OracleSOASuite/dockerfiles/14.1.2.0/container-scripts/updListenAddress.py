@@ -8,6 +8,7 @@
 # ==============================================
 #
 import sys
+import os
 
 #
 # Assigning values to variables
@@ -36,7 +37,7 @@ readDomain(domain_path)
 # Set listen address
 # ==================
 cd('/')
-cd('/Server/'+server)
+cd('/Servers/'+server)
 cmo.setListenAddress(manserver_host)
 
 # Creating domain

@@ -135,9 +135,13 @@ COPY --from=builder --chown=oracle:root /u01 /u01
 # Define default command to start bash.
 # 
 USER oracle
+# Healthcheck script path must be set; default to helper
+ENV HEALTH_SCRIPT_FILE=/u01/oracle/container-scripts/get_healthcheck_url.sh \
+    USE_ADB=false \
+    TNS_ADMIN= \
+    ADB_TNS_ALIAS=
 HEALTHCHECK --start-period=5m --interval=1m CMD curl -k -s --fail `$HEALTH_SCRIPT_FILE` || exit 1
 WORKDIR $ORACLE_HOME
 CMD ["/u01/oracle/container-scripts/createDomainAndStart.sh"]
-
 
 
